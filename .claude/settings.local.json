@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rustc --version)",
+      "Bash(cargo --version)",
+      "Bash(git --version)",
+      "PowerShell(rustc --version)",
+      "PowerShell(cargo --version)",
+      "PowerShell(Test-Path \"$env:USERPROFILE\\\\.cargo\\\\bin\\\\cargo.exe\")",
+      "PowerShell(& \"$env:USERPROFILE\\\\.cargo\\\\bin\\\\rustc.exe\" --version; & \"$env:USERPROFILE\\\\.cargo\\\\bin\\\\cargo.exe\" --version)"
+    ]
+  }
+}

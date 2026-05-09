@@ -1,5 +1,8 @@
-//! Loader support: Fabric, Quilt, NeoForge, Forge.
-//! Implemented in Phase 2 (Fabric) and Phase 5 (NeoForge, Forge, Quilt).
+pub mod fabric;
+pub mod merge;
+
+pub use fabric::FabricProvider;
+pub use merge::{LoaderProfile, merge};
 
 use async_trait::async_trait;
 use launcher_core::{LoaderType, Result};

@@ -11,6 +11,8 @@ path = "src/main.rs"
 [dependencies]
 launcher-core         = { path = "../core" }
 launcher-meta         = { path = "../meta" }
+launcher-auth         = { path = "../auth" }
+launcher-loaders      = { path = "../loaders" }
 launcher-downloader   = { path = "../downloader" }
 launcher-java-manager = { path = "../java-manager" }
 launcher-launcher     = { path = "../launcher" }

@@ -58,7 +58,7 @@ pub struct VersionJson {
     pub minimum_launcher_version: Option<u32>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Arguments {
     #[serde(default)]
     pub game: Vec<Argument>,

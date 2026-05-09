@@ -89,6 +89,13 @@ strategy     = "detect_or_download"
 # "temurin" | "zulu" | "graalvm"
 distribution = "temurin"
 
+[auth]
+# Registra tu propia app en: https://portal.azure.com → Azure AD → App registrations
+# Tipo: "Personal Microsoft accounts only"
+# Redirect URI: http://localhost (tipo "Mobile and desktop applications")
+# Permisos: XboxLive.signin offline_access
+microsoft_client_id = ""   # ← pega aquí tu Application (client) ID
+
 [curseforge]
 # También acepta la variable de entorno CURSEFORGE_API_KEY en tiempo de compilación
 api_key = ""

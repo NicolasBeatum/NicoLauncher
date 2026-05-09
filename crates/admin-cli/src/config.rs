@@ -9,6 +9,8 @@ pub struct LauncherConfig {
     pub runtime: RuntimeConfig,
     pub java: JavaConfig,
     #[serde(default)]
+    pub auth: AuthConfig,
+    #[serde(default)]
     pub features: FeaturesConfig,
 }
 
@@ -50,6 +52,12 @@ pub struct JavaConfig {
 }
 
 fn default_java_strategy() -> String { "detect_or_download".to_string() }
+
+#[derive(Debug, Deserialize, Default)]
+pub struct AuthConfig {
+    #[serde(default)]
+    pub microsoft_client_id: String,
+}
 
 #[derive(Debug, Deserialize, Default)]
 pub struct FeaturesConfig {
