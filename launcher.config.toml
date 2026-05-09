@@ -1,0 +1,101 @@
+# ============================================================================
+# launcher.config.toml — Edita este archivo para personalizar el launcher
+# ============================================================================
+# Guía completa: docs/customization-guide.md
+
+[branding]
+# IMPORTANTE: internal_id se usa para las rutas en AppData del usuario.
+# Cámbialo antes de publicar. NO lo cambies después de que haya usuarios reales.
+internal_id      = "mc-launcher-template"
+display_name     = "Mi Servidor MC"
+window_title     = "Mi Servidor — Launcher"
+description      = "Launcher oficial de Mi Servidor"
+publisher        = "Tu Comunidad"
+copyright        = "© 2026 Tu Nombre"
+
+# Colores del tema (hex)
+primary_color    = "#7c3aed"
+secondary_color  = "#1e293b"
+accent_color     = "#f59e0b"
+
+# Assets en la carpeta assets/
+logo             = "logo.png"          # 256×256+
+icon             = "icon.ico"          # Windows
+icon_png         = "icon.png"          # Linux/macOS
+background       = "background.jpg"   # 1920×1080 recomendado
+splash_video     = ""                  # opcional, MP4
+
+heading_font     = "Inter"
+body_font        = "Inter"
+
+[branding.social]
+discord = "https://discord.gg/tu-server"
+website = "https://miservidor.com"
+twitter = ""
+youtube = ""
+donate  = ""
+
+[server]
+display_name              = "Mi Servidor"
+address                   = "play.miservidor.com"
+port                      = 25565
+
+# Proveedor del manifest: "http" | "git" | "file"
+manifest_provider         = "http"
+manifest_url              = "https://api.miservidor.com/launcher/manifest.json"
+manifest_git_repo         = ""
+manifest_git_branch       = "main"
+manifest_git_path         = "manifest.json"
+
+# Clave pública Ed25519 (hex). Vacío = modo dev, no verifica firma.
+manifest_public_key       = ""
+
+update_check_interval_secs = 300
+status_endpoint           = ""
+
+[updater]
+enabled            = true
+release_url        = "https://api.miservidor.com/launcher/releases.json"
+release_public_key = ""
+
+[features]
+allow_optional_mods            = true
+allow_ram_config               = true
+allow_jvm_args_edit            = false
+allow_java_path_override       = true
+allow_game_directory_override  = false
+show_advanced_logs             = true
+show_news                      = true
+quick_connect                  = true
+
+[runtime]
+ram_min_mb           = 2048
+ram_max_mb           = 16384
+ram_default_mb       = 4096
+default_jvm_args     = [
+    "-XX:+UnlockExperimentalVMOptions",
+    "-XX:+UseG1GC",
+    "-XX:G1NewSizePercent=20",
+    "-XX:G1ReservePercent=20",
+    "-XX:MaxGCPauseMillis=50",
+    "-XX:G1HeapRegionSize=32M",
+]
+download_concurrency = 8
+download_timeout_secs = 120
+
+[java]
+# "detect_or_download" | "always_download" | "system_only"
+strategy     = "detect_or_download"
+# "temurin" | "zulu" | "graalvm"
+distribution = "temurin"
+
+[curseforge]
+# También acepta la variable de entorno CURSEFORGE_API_KEY en tiempo de compilación
+api_key = ""
+
+[telemetry]
+enabled         = false
+endpoint        = ""
+report_launches = false
+report_crashes  = false
+report_hardware = false
