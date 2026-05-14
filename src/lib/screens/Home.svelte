@@ -96,7 +96,15 @@
     // Registrar listener de progreso una vez, para toda la vida del componente.
     // (Hacerlo dentro de handlePlay con await causa un hang en Tauri 2.)
     const unlistenProgress = await events.onProgress(e => {
-      if (e.current !== undefined || e.total !== undefined) progress = e;
+      // Actualizar progress si viene cualquier campo de estado
+      if (e.stage != null || e.current != null || e.total != null) {
+        progress = {
+          stage:   e.stage   ?? progress?.stage,
+          current: e.current ?? progress?.current,
+          total:   e.total   ?? progress?.total,
+          message: e.message ?? null,
+        } as typeof progress;
+      }
       if (e.message) {
         appLogs = [...appLogs.slice(-499), e.message];
         tick().then(scrollConsole);
@@ -351,13 +359,36 @@
 
       {#if playState === 'syncing'}
         <!-- Sync progress -->
-        <div class="w-full flex flex-col items-center gap-3">
-          <p class="text-white/70 text-sm">{progress?.stage ?? 'Sincronizando…'}</p>
-          <div class="w-full h-2 rounded-full bg-white/10 overflow-hidden">
-            <div class="h-full rounded-full transition-all duration-300"
-                 style="width: {progressPercent}%; background: var(--color-primary)"></div>
-          </div>
-          <p class="text-white/40 text-xs">{progressPercent}%</p>
+        <div class="w-full flex flex-col items-center gap-2">
+          <!-- Stage label -->
+          <p class="text-white/80 text-sm font-medium">
+            {progress?.stage ?? 'Preparando sincronización…'}
+          </p>
+
+          <!-- Barra de progreso o indeterminada -->
+          {#if progress?.total}
+            <div class="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-200"
+                   style="width: {progressPercent}%; background: var(--color-primary)"></div>
+            </div>
+            <div class="flex justify-between w-full mt-0.5">
+              <span class="text-white/40 text-xs">{progressPercent}%</span>
+              <span class="text-white/40 text-xs">{progress.current ?? 0} / {progress.total}</span>
+            </div>
+          {:else}
+            <!-- Barra indeterminada mientras no hay total -->
+            <div class="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+              <div class="h-full w-full rounded-full opacity-60 animate-pulse"
+                   style="background: var(--color-primary)"></div>
+            </div>
+          {/if}
+
+          <!-- Archivo actual -->
+          {#if progress?.message}
+            <p class="text-white/35 text-xs font-mono truncate w-full text-center leading-snug">
+              {progress.message}
+            </p>
+          {/if}
         </div>
 
       {:else if playState === 'launching'}

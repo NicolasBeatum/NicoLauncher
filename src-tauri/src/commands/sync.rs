@@ -168,18 +168,34 @@ pub async fn sync_apply(
 
     // Emitir el plan inmediatamente para que el usuario vea qué va a pasar
     let total_mods = plan.mods_to_download.len() + plan.optional_mods_to_download.len();
-    let plan_msg = format!(
-        "Plan: {} req · {} opt · {} eliminar · {} configs · loader: {:?}",
-        plan.mods_to_download.len(),
-        plan.optional_mods_to_download.len(),
-        plan.mods_to_remove.len() + plan.optional_mods_to_remove.len(),
-        plan.configs_to_apply.len(),
-        matches!(plan.loader_action, LoaderAction::None),
-    );
+    let plan_total = (total_mods + plan.configs_to_apply.len()) as u64;
+    let plan_msg = {
+        let mut parts = Vec::new();
+        if plan.mods_to_download.len() > 0 {
+            parts.push(format!("{} mod{} nuevo{}", plan.mods_to_download.len(),
+                if plan.mods_to_download.len() != 1 { "s" } else { "" },
+                if plan.mods_to_download.len() != 1 { "s" } else { "" }));
+        }
+        if plan.optional_mods_to_download.len() > 0 {
+            parts.push(format!("{} opcional{}", plan.optional_mods_to_download.len(),
+                if plan.optional_mods_to_download.len() != 1 { "es" } else { "" }));
+        }
+        let to_remove = plan.mods_to_remove.len() + plan.optional_mods_to_remove.len();
+        if to_remove > 0 { parts.push(format!("{to_remove} a eliminar")); }
+        if plan.configs_to_apply.len() > 0 {
+            parts.push(format!("{} config{}", plan.configs_to_apply.len(),
+                if plan.configs_to_apply.len() != 1 { "s" } else { "" }));
+        }
+        if parts.is_empty() { "Todo al día".into() } else { parts.join(" · ") }
+    };
     let _ = app.emit("progress", ProgressDto {
-        stage: Some("Verificando…".into()),
+        stage: Some(if plan_total > 0 {
+            format!("Sincronizando… (0/{plan_total})")
+        } else {
+            "Verificando…".into()
+        }),
         current: Some(0),
-        total: Some((total_mods + plan.configs_to_apply.len()) as u64),
+        total: Some(plan_total),
         message: Some(plan_msg),
     });
 
@@ -223,9 +239,9 @@ pub async fn sync_apply(
             let mut current = 0u64;
             while let Some(event) = rx.recv().await {
                 match event {
-                    ProgressEvent::Stage { name, .. } => {
+                    ProgressEvent::Stage { .. } => {
                         let _ = app_clone.emit("progress", ProgressDto {
-                            stage: Some(name),
+                            stage: Some(format!("Descargando mods… (0/{total})")),
                             current: Some(0),
                             total: Some(total),
                             message: None,
@@ -234,7 +250,7 @@ pub async fn sync_apply(
                     ProgressEvent::Advance { delta } => {
                         current += delta;
                         let _ = app_clone.emit("progress", ProgressDto {
-                            stage: None,
+                            stage: Some(format!("Descargando mods… ({current}/{total})")),
                             current: Some(current),
                             total: Some(total),
                             message: None,
@@ -242,7 +258,7 @@ pub async fn sync_apply(
                     }
                     ProgressEvent::Log { message, .. } => {
                         let _ = app_clone.emit("progress", ProgressDto {
-                            stage: None,
+                            stage: Some(format!("Descargando mods… ({current}/{total})")),
                             current: Some(current),
                             total: Some(total),
                             message: Some(message),
