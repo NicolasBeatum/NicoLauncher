@@ -17,6 +17,7 @@ pub struct BrandingDto {
     pub website: String,
     pub server_name: String,
     pub server_address: String,
+    pub server_port: u16,
 }
 
 #[tauri::command]

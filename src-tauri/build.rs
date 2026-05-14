@@ -29,6 +29,7 @@ fn main() {
 
     let server_name    = s["display_name"].as_str().unwrap_or("Mi Servidor");
     let server_address = s["address"].as_str().unwrap_or("");
+    let server_port    = s["port"].as_integer().unwrap_or(25565) as u16;
 
     // Write branding.json for embedding in the binary (served via get_branding command)
     let branding = serde_json::json!({
@@ -44,6 +45,7 @@ fn main() {
         "website":        website,
         "serverName":     server_name,
         "serverAddress":  server_address,
+        "serverPort":     server_port,
     });
 
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());

@@ -1,12 +1,16 @@
 <script lang="ts">
   import { onMount, onDestroy, tick } from 'svelte';
   import { fade } from 'svelte/transition';
+  import { marked } from 'marked';
   import { branding } from '$lib/stores/branding';
   import { session, logout } from '$lib/stores/auth';
   import { screen } from '$lib/stores/screen';
   import { addToast } from '$lib/stores/toast';
-  import { api, events, type ServerManifestDto, type SyncPlanDto, type ProgressEvent, type InstanceDto, type MissingModDto } from '$lib/tauri';
+  import { api, events, type ServerManifestDto, type SyncPlanDto, type ProgressEvent, type InstanceDto, type MissingModDto, type ServerStatusDto } from '$lib/tauri';
   import { open } from '@tauri-apps/plugin-shell';
+
+  // Configure marked: safe, no pedantic
+  marked.setOptions({ async: false });
 
   type PlayState = 'idle' | 'syncing' | 'launching' | 'running';
 
@@ -23,6 +27,31 @@
   let manifestError: string | null = null;
   let unlisteners: (() => void)[] = [];
   let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+  // ── Server status ───────────────────────────────────────────────────────────
+  let serverStatus: ServerStatusDto | null = null;
+  let statusInterval: ReturnType<typeof setInterval> | null = null;
+  let copyIpLabel = 'Copiar IP';
+
+  async function refreshServerStatus() {
+    try { serverStatus = await api.serverStatus(); }
+    catch { serverStatus = null; }
+  }
+
+  async function copyIp() {
+    const addr = $branding.serverAddress;
+    if (!addr) return;
+    const full = $branding.serverPort !== 25565
+      ? `${addr}:${$branding.serverPort}`
+      : addr;
+    try {
+      await navigator.clipboard.writeText(full);
+      copyIpLabel = '✓ Copiado';
+      setTimeout(() => { copyIpLabel = 'Copiar IP'; }, 2000);
+    } catch {
+      addToast('error', 'No se pudo copiar la IP');
+    }
+  }
 
   // ── Modal mods faltantes ────────────────────────────────────────────────────
   let missingMods: MissingModDto[] = [];
@@ -93,6 +122,12 @@
     await loadInstances();
     await loadManifest();
 
+    // Server status — fetch immediately and every 30s
+    if ($branding.serverAddress) {
+      refreshServerStatus();
+      statusInterval = setInterval(refreshServerStatus, 30_000);
+    }
+
     // Registrar listener de progreso una vez, para toda la vida del componente.
     // (Hacerlo dentro de handlePlay con await causa un hang en Tauri 2.)
     const unlistenProgress = await events.onProgress(e => {
@@ -142,6 +177,7 @@
     unlisteners.forEach(u => u());
     clearPoll();
     if (manifestRefreshInterval) clearInterval(manifestRefreshInterval);
+    if (statusInterval) clearInterval(statusInterval);
   });
 
   async function loadManifest() {
@@ -299,6 +335,18 @@
                   :                          appLogs.filter(l => l.startsWith('[MC]'));
 
   $: errorCount = appLogs.filter(l => l.startsWith('ERROR')).length;
+
+  // Rendered Markdown for the announcement body
+  $: announcementHtml = manifest?.announcementBody
+    ? (marked.parse(manifest.announcementBody) as string)
+    : '';
+
+  // Full server address string (with port if non-default)
+  $: serverAddressFull = $branding.serverAddress
+    ? ($branding.serverPort !== 25565
+        ? `${$branding.serverAddress}:${$branding.serverPort}`
+        : $branding.serverAddress)
+    : '';
 </script>
 
 <div in:fade={{ duration: 300 }} class="fixed inset-0 flex flex-col" style="background: var(--color-secondary)">
@@ -471,16 +519,79 @@
 
     </div>
 
-    <!-- Announcement banner -->
-    {#if manifest?.announcementTitle}
-      <div class="w-full max-w-lg px-4 py-3 rounded-xl text-sm text-white/80"
-           style="background: rgba(255,255,255,0.06)">
-        <p class="font-semibold mb-1">{manifest.announcementTitle}</p>
-        {#if manifest.announcementBody}
-          {#each manifest.announcementBody.split('\n') as line}
-            <p class="text-white/50">{line}</p>
-          {/each}
+    <!-- ── Info bar: announcement + server status ──────────────────────────── -->
+    {#if manifest?.announcementTitle || $branding.serverAddress}
+      <div class="w-full max-w-2xl flex gap-4 px-2">
+
+        <!-- Novedades / announcement -->
+        {#if manifest?.announcementTitle}
+          <div class="flex-1 px-4 py-3 rounded-xl text-sm"
+               style="background: rgba(255,255,255,0.06)">
+            <p class="font-semibold text-white mb-1.5">
+              📰 {manifest.announcementTitle}
+            </p>
+            {#if announcementHtml}
+              <div class="prose-sm text-white/55 leading-relaxed [&_a]:text-blue-400 [&_strong]:text-white/80 [&_ul]:list-disc [&_ul]:pl-4 [&_p]:mb-1">
+                {@html announcementHtml}
+              </div>
+            {/if}
+          </div>
         {/if}
+
+        <!-- Estado del servidor -->
+        {#if $branding.serverAddress}
+          <div class="flex-shrink-0 w-44 px-4 py-3 rounded-xl flex flex-col gap-1.5"
+               style="background: rgba(255,255,255,0.06)">
+
+            <!-- Online / offline indicator -->
+            <div class="flex items-center gap-1.5">
+              {#if serverStatus === null}
+                <span class="w-2 h-2 rounded-full bg-white/20 animate-pulse"></span>
+                <span class="text-white/30 text-xs">Comprobando…</span>
+              {:else if serverStatus.online}
+                <span class="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.8)]"></span>
+                <span class="text-green-400 text-xs font-medium">En línea</span>
+              {:else}
+                <span class="w-2 h-2 rounded-full bg-red-400/70"></span>
+                <span class="text-white/40 text-xs">Sin conexión</span>
+              {/if}
+            </div>
+
+            <!-- Jugadores + ping -->
+            {#if serverStatus?.online}
+              {#if serverStatus.playersOnline !== null && serverStatus.playersMax !== null}
+                <p class="text-white/60 text-xs">
+                  👥 {serverStatus.playersOnline}/{serverStatus.playersMax}
+                </p>
+              {/if}
+              {#if serverStatus.pingMs !== null}
+                <p class="text-white/40 text-xs">
+                  {serverStatus.pingMs}ms
+                </p>
+              {/if}
+              {#if serverStatus.motd}
+                <p class="text-white/30 text-xs truncate" title={serverStatus.motd}>
+                  {serverStatus.motd}
+                </p>
+              {/if}
+            {/if}
+
+            <!-- Dirección + botón Copiar IP -->
+            <div class="mt-auto pt-1 border-t border-white/5">
+              <p class="text-white/30 text-xs font-mono truncate mb-1" title={serverAddressFull}>
+                {serverAddressFull}
+              </p>
+              <button
+                on:click={copyIp}
+                class="w-full py-1 rounded-lg text-xs font-medium transition-colors
+                       text-white/60 hover:text-white"
+                style="background: rgba(255,255,255,0.08)">
+                {copyIpLabel}
+              </button>
+            </div>
+          </div>
+        {/if}
+
       </div>
     {/if}
 

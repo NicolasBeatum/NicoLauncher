@@ -6,7 +6,7 @@ export type BrandingDto = {
   primaryColor: string; secondaryColor: string; accentColor: string;
   headingFont: string; bodyFont: string;
   discord: string; website: string;
-  serverName: string; serverAddress: string;
+  serverName: string; serverAddress: string; serverPort: number;
 };
 
 export type AuthSessionDto = {

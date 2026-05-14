@@ -5,7 +5,7 @@ const defaults: BrandingDto = {
   internalId: 'mc-launcher-template', displayName: 'MC Launcher', windowTitle: 'MC Launcher',
   primaryColor: '#7c3aed', secondaryColor: '#1e293b', accentColor: '#f59e0b',
   headingFont: 'Inter', bodyFont: 'Inter', discord: '', website: '',
-  serverName: 'Mi Servidor', serverAddress: '',
+  serverName: 'Mi Servidor', serverAddress: '', serverPort: 25565,
 };
 
 function createBrandingStore() {
