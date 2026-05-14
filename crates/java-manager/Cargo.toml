@@ -10,3 +10,8 @@ launcher-core = { path = "../core" }
 tokio        = { workspace = true }
 tracing      = { workspace = true }
 which        = { workspace = true }
+reqwest      = { workspace = true }
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+futures      = { workspace = true }
+zip          = { workspace = true }

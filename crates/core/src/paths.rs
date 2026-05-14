@@ -101,6 +101,51 @@ impl LauncherPaths {
     pub fn mod_cas_path(&self, sha512: &str) -> PathBuf {
         self.mod_files.join(&sha512[..2]).join(sha512)
     }
+
+    /// Devuelve las rutas específicas de una instancia.
+    /// Cada instancia tiene su propio directorio .minecraft y archivos de estado.
+    /// Las rutas compartidas (cache, java, logs) siguen siendo las del launcher raíz.
+    pub fn instance(&self, instance_id: &str) -> InstancePaths {
+        let base = self.root.join("instances").join(instance_id);
+        let minecraft = base.join("minecraft");
+        InstancePaths {
+            base: base.clone(),
+            minecraft: minecraft.clone(),
+            mods: minecraft.join("mods"),
+            optional_mods: minecraft.join("mods-optional"),
+            state_file:        base.join("current-state.json"),
+            choices_file:      base.join("optional-choices.json"),
+            user_mods_state:   base.join("user-mods-enabled.json"),
+        }
+    }
+}
+
+/// Rutas específicas de una instancia/servidor.
+#[derive(Debug, Clone)]
+pub struct InstancePaths {
+    /// Raíz de la instancia: `{launcher_root}/instances/{id}/`
+    pub base: PathBuf,
+    /// Directorio .minecraft de la instancia
+    pub minecraft: PathBuf,
+    /// Carpeta mods/ dentro de .minecraft — mods del servidor (gestionados por sync)
+    pub mods: PathBuf,
+    /// Carpeta mods-optional/ — mods locales del usuario (gestionados por el usuario)
+    pub optional_mods: PathBuf,
+    /// Archivo de estado de sincronización
+    pub state_file: PathBuf,
+    /// Elecciones de anuncios descartados, etc.
+    pub choices_file: PathBuf,
+    /// Lista de mods de usuario actualmente activados (hardlinkeados a mods/)
+    pub user_mods_state: PathBuf,
+}
+
+impl InstancePaths {
+    pub async fn ensure_all(&self) -> crate::Result<()> {
+        for dir in [&self.base, &self.minecraft, &self.mods, &self.optional_mods] {
+            tokio::fs::create_dir_all(dir).await?;
+        }
+        Ok(())
+    }
 }
 
 /// Convert a Maven coordinate (`group:artifact:version[:classifier]`) to a

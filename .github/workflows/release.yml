@@ -1,0 +1,126 @@
+# ============================================================================
+# release.yml — Build, sign & publish the launcher
+#
+# Trigger: push a tag  v*  (e.g. v1.0.0)
+#
+# Required repository secrets:
+#   TAURI_SIGNING_PRIVATE_KEY  — content of updater.key (base64, no password)
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD — leave empty if key has no password
+#
+# Optional secrets (leave empty to skip):
+#   RELEASE_MANIFEST_REPO_TOKEN — PAT to push updated manifest.json to another repo
+# ============================================================================
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Only one release at a time
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Build ──────────────────────────────────────────────────────────────────
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: ''
+            artifact_suffix: windows
+          - platform: ubuntu-22.04
+            args: ''
+            artifact_suffix: linux
+          - platform: macos-latest
+            args: '--target aarch64-apple-darwin'
+            artifact_suffix: macos-arm
+          - platform: macos-latest
+            args: '--target x86_64-apple-darwin'
+            artifact_suffix: macos-x86
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - uses: actions/checkout@v4
+
+      # ── Rust ────────────────────────────────────────────────────────────────
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: >-
+            ${{
+              matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' ||
+              matrix.platform == 'windows-latest' && 'x86_64-pc-windows-msvc' ||
+              'x86_64-unknown-linux-gnu'
+            }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+
+      # ── Node ────────────────────────────────────────────────────────────────
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # ── Linux system deps ───────────────────────────────────────────────────
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      # ── Tauri build ─────────────────────────────────────────────────────────
+      - name: Build the app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: '${{ github.ref_name }}'
+          releaseBody: |
+            ## Cambios en ${{ github.ref_name }}
+
+            Descarga el instalador para tu plataforma:
+            - **Windows**: `.msi` o `.exe` (NSIS)
+            - **Linux**: `.deb` o `.AppImage`
+            - **macOS**: `.dmg`
+
+            ---
+            🤖 Release generado automáticamente por GitHub Actions.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+  # ── Update manifest ─────────────────────────────────────────────────────────
+  # Optional: after all builds are done, update the release_url endpoint so
+  # already-installed launchers get notified of the new version.
+  # This step only runs if you configure RELEASE_MANIFEST_REPO_TOKEN.
+  update-manifest:
+    needs: build
+    runs-on: ubuntu-22.04
+    if: ${{ secrets.RELEASE_MANIFEST_REPO_TOKEN != '' }}
+    steps:
+      - name: Notify manifest (placeholder)
+        run: |
+          echo "Tag: ${{ github.ref_name }}"
+          echo "Add your manifest update logic here."
+          echo "E.g. curl -X POST your-manifest-server/webhooks/release ..."

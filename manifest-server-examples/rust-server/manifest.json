@@ -1,0 +1,38 @@
+{
+  "manifest_version": "1",
+  "mc_version": "1.21.1",
+  "loader_type": "fabric",
+  "loader_version": "0.16.5",
+  "required_mods": [
+    {
+      "id": "fabric-api",
+      "name": "Fabric API",
+      "version": "0.100.0+1.21.1",
+      "url": "https://cdn.modrinth.com/data/P7dR8mSH/versions/EXAMPLE/fabric-api-0.100.0+1.21.1.jar",
+      "sha1": "0000000000000000000000000000000000000000",
+      "filename": "fabric-api-0.100.0+1.21.1.jar"
+    }
+  ],
+  "optional_mods": [
+    {
+      "id": "sodium",
+      "name": "Sodium",
+      "description": "Mejora significativa del rendimiento gráfico",
+      "category": "Rendimiento",
+      "icon_url": "https://cdn.modrinth.com/data/AANobbMI/icon.png",
+      "default_enabled": true,
+      "depends_on": [],
+      "conflicts_with": [],
+      "version": "0.5.11+mc1.21.1",
+      "url": "https://cdn.modrinth.com/data/AANobbMI/versions/EXAMPLE/sodium-fabric-0.5.11+mc1.21.1.jar",
+      "sha1": "0000000000000000000000000000000000000000",
+      "filename": "sodium-fabric-0.5.11+mc1.21.1.jar"
+    }
+  ],
+  "configs": [],
+  "files_to_delete": [],
+  "announcement": {
+    "title": "¡Bienvenido al servidor!",
+    "body": "Edita este archivo para personalizar los mods y el mensaje de bienvenida."
+  }
+}

@@ -21,6 +21,8 @@ pub struct DownloadJob {
     /// SHA-512 expected hash (used for mods)
     pub expected_sha512: Option<String>,
     pub expected_size: Option<u64>,
+    /// Fallback URLs tried in order if the primary URL returns 4xx
+    pub fallback_urls: Vec<String>,
 }
 
 impl DownloadJob {
@@ -31,6 +33,7 @@ impl DownloadJob {
             expected_sha1: None,
             expected_sha512: None,
             expected_size: None,
+            fallback_urls: Vec::new(),
         }
     }
 
@@ -46,6 +49,11 @@ impl DownloadJob {
 
     pub fn with_size(mut self, size: u64) -> Self {
         self.expected_size = Some(size);
+        self
+    }
+
+    pub fn with_fallback_url(mut self, url: impl Into<String>) -> Self {
+        self.fallback_urls.push(url.into());
         self
     }
 }
@@ -85,7 +93,7 @@ impl Downloader {
                 let reporter = self.reporter.clone();
                 async move {
                     let _permit = sem.acquire().await.map_err(|e| Error::Other(e.to_string()))?;
-                    let r = download_with_retry(&client, &job).await;
+                    let r = download_with_retry(&client, &job, &reporter).await;
                     reporter.advance(1).await;
                     r
                 }
@@ -109,11 +117,11 @@ impl Downloader {
     }
 
     pub async fn download_one(&self, job: DownloadJob) -> Result<()> {
-        download_with_retry(&self.client, &job).await
+        download_with_retry(&self.client, &job, &self.reporter).await
     }
 }
 
-async fn download_with_retry(client: &reqwest::Client, job: &DownloadJob) -> Result<()> {
+async fn download_with_retry(client: &reqwest::Client, job: &DownloadJob, reporter: &launcher_core::ProgressReporter) -> Result<()> {
     // Fast path: skip if already present and valid
     if job.dest.exists() {
         if is_valid(job).await {
@@ -122,15 +130,36 @@ async fn download_with_retry(client: &reqwest::Client, job: &DownloadJob) -> Res
         }
     }
 
+    // Log the filename being downloaded
+    let filename = job.dest
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("?");
+    reporter.info(format!("⬇ {filename}")).await;
+
+    // Build the list of URLs to try: primary first, then fallbacks
+    let all_urls: Vec<&str> = std::iter::once(job.url.as_str())
+        .chain(job.fallback_urls.iter().map(|s| s.as_str()))
+        .collect();
+
     let mut last_err = None;
-    for attempt in 1..=MAX_RETRIES {
-        match download_once(client, job).await {
-            Ok(()) => return Ok(()),
-            Err(e) => {
-                warn!("Download attempt {attempt}/{MAX_RETRIES} failed for {}: {e}", job.url);
-                last_err = Some(e);
-                if attempt < MAX_RETRIES {
-                    tokio::time::sleep(Duration::from_millis(500 * attempt as u64)).await;
+    'url_loop: for url in &all_urls {
+        // Create a temporary job with this URL for download_once
+        let mut attempt_job = job.clone();
+        attempt_job.url = url.to_string();
+
+        for attempt in 1..=MAX_RETRIES {
+            match download_once(client, &attempt_job).await {
+                Ok(()) => return Ok(()),
+                Err(e) => {
+                    let is_client_err = e.to_string().contains("HTTP 4");
+                    warn!("Download attempt {attempt}/{MAX_RETRIES} failed for {url}: {e}");
+                    last_err = Some(e);
+                    // On 4xx, don't retry this URL — try the next fallback
+                    if is_client_err { continue 'url_loop; }
+                    if attempt < MAX_RETRIES {
+                        tokio::time::sleep(Duration::from_millis(500 * attempt as u64)).await;
+                    }
                 }
             }
         }
@@ -199,20 +228,30 @@ async fn download_once(client: &reqwest::Client, job: &DownloadJob) -> Result<()
     Ok(())
 }
 
-/// Quick validity check against known hash/size (does not re-hash if no expected value).
+/// Quick validity check.
+/// Order: size check first (just metadata, fast), then hash only if size wrong/unknown.
 async fn is_valid(job: &DownloadJob) -> bool {
+    // Fast path: check file size first
+    if let Some(expected_size) = job.expected_size {
+        let actual_size = tokio::fs::metadata(&job.dest)
+            .await
+            .map(|m| m.len())
+            .unwrap_or(0);
+        if actual_size != expected_size {
+            return false; // wrong size → re-download
+        }
+        // Size matches → trust it, skip hash check
+        return true;
+    }
+
+    // No size available → fall back to hash verification
     if let Some(expected) = &job.expected_sha1 {
         return launcher_core::hash::verify_sha1(&job.dest, expected).await.is_ok();
     }
     if let Some(expected) = &job.expected_sha512 {
         return launcher_core::hash::verify_sha512(&job.dest, expected).await.is_ok();
     }
-    if let Some(size) = job.expected_size {
-        return tokio::fs::metadata(&job.dest)
-            .await
-            .map(|m| m.len() == size)
-            .unwrap_or(false);
-    }
-    // No verification criteria — assume valid if file exists
+
+    // No criteria at all — assume valid
     true
 }

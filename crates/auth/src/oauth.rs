@@ -9,12 +9,20 @@ use tracing::{debug, info};
 
 use launcher_core::{Error, Result};
 
+// Must use "consumers" — XboxLive.signin scope only exists in the personal-accounts tenant.
 const AUTH_ENDPOINT: &str =
     "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize";
 const TOKEN_ENDPOINT: &str =
     "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
 const SCOPES: &str = "XboxLive.signin offline_access";
 const OAUTH_TIMEOUT_SECS: u64 = 300;
+
+/// Fixed local port for the OAuth callback server.
+/// Register EXACTLY this URI in Azure Portal:
+///   http://localhost:25558/callback
+/// Platform: "Mobile and desktop applications"
+pub const REDIRECT_URI: &str = "http://localhost:25558/callback";
+const REDIRECT_PORT: u16 = 25558;
 
 #[derive(Debug)]
 pub struct MsTokens {
@@ -29,20 +37,20 @@ pub async fn login(client_id: &str, http: &reqwest::Client) -> Result<MsTokens> 
     let code_verifier  = generate_code_verifier();
     let code_challenge = compute_code_challenge(&code_verifier);
 
-    let listener = TcpListener::bind("127.0.0.1:0")
+    // Use fixed port so the redirect_uri is always predictable.
+    // Azure registration must have EXACTLY: http://localhost:25558/callback
+    let listener = TcpListener::bind(format!("127.0.0.1:{REDIRECT_PORT}"))
         .await
-        .map_err(|e| Error::Auth(format!("Cannot start local OAuth server: {e}")))?;
-    let port = listener
-        .local_addr()
-        .map_err(|e| Error::Auth(e.to_string()))?
-        .port();
-    let redirect_uri = format!("http://localhost:{port}/callback");
+        .map_err(|e| Error::Auth(format!(
+            "Cannot start OAuth callback server on port {REDIRECT_PORT}: {e}\n\
+             Is another process using that port?"
+        )))?;
 
     let auth_url = format!(
         "{AUTH_ENDPOINT}?client_id={client_id}&response_type=code\
          &redirect_uri={}&scope={}&code_challenge={code_challenge}\
          &code_challenge_method=S256&prompt=select_account",
-        urlencoded(&redirect_uri),
+        urlencoded(REDIRECT_URI),
         urlencoded(SCOPES),
     );
 
@@ -50,10 +58,10 @@ pub async fn login(client_id: &str, http: &reqwest::Client) -> Result<MsTokens> 
     println!("\n  Opening your browser for Microsoft login.");
     println!("  If nothing opens, visit:\n  {auth_url}\n");
 
-    // open::that is synchronous but fast (just spawns default browser)
-    let _ = tokio::task::spawn_blocking(move || open::that(&auth_url)).await;
+    let url_for_browser = auth_url.clone();
+    let _ = tokio::task::spawn_blocking(move || open::that(&url_for_browser)).await;
 
-    info!("Waiting for OAuth callback on port {port} (timeout {}s)…", OAUTH_TIMEOUT_SECS);
+    info!("Waiting for OAuth callback on port {REDIRECT_PORT} (timeout {}s)…", OAUTH_TIMEOUT_SECS);
     let code = tokio::time::timeout(
         Duration::from_secs(OAUTH_TIMEOUT_SECS),
         wait_for_callback(listener),
@@ -62,7 +70,7 @@ pub async fn login(client_id: &str, http: &reqwest::Client) -> Result<MsTokens> 
     .map_err(|_| Error::Auth("Login timed out (5 minutes). Please try again.".into()))??;
 
     debug!("Got auth code, exchanging for tokens…");
-    exchange_code(http, client_id, &code, &redirect_uri, &code_verifier).await
+    exchange_code(http, client_id, &code, REDIRECT_URI, &code_verifier).await
 }
 
 /// Refresh an existing access token using the stored refresh token.
@@ -124,10 +132,28 @@ async fn wait_for_callback(listener: TcpListener) -> Result<String> {
         .map(|(_, q)| q)
         .unwrap_or("");
 
+    let mut code = None;
+    let mut error = None;
+    let mut error_description = None;
+
     for pair in query.split('&') {
-        if let Some(("code", value)) = pair.split_once('=') {
-            return Ok(urldecoded(value));
+        if let Some((key, value)) = pair.split_once('=') {
+            match key {
+                "code"              => code              = Some(urldecoded(value)),
+                "error"             => error             = Some(urldecoded(value)),
+                "error_description" => error_description = Some(urldecoded(value)),
+                _ => {}
+            }
         }
+    }
+
+    if let Some(code) = code {
+        return Ok(code);
+    }
+
+    if let Some(err) = error {
+        let desc = error_description.unwrap_or_default();
+        return Err(Error::Auth(format!("Microsoft OAuth error: {err} — {desc}")));
     }
 
     Err(Error::Auth(

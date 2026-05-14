@@ -1,7 +1,13 @@
 pub mod fabric;
+pub mod quilt;
+pub mod neoforge;
+pub mod forge;
 pub mod merge;
 
 pub use fabric::FabricProvider;
+pub use quilt::QuiltProvider;
+pub use neoforge::NeoForgeProvider;
+pub use forge::ForgeProvider;
 pub use merge::{LoaderProfile, merge};
 
 use async_trait::async_trait;

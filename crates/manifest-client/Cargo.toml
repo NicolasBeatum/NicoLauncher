@@ -5,12 +5,15 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-launcher-core = { path = "../core" }
+launcher-core       = { path = "../core" }
+launcher-downloader = { path = "../downloader" }
+launcher-mods       = { path = "../mods" }
 tokio         = { workspace = true }
 reqwest       = { workspace = true }
 serde         = { workspace = true }
 serde_json    = { workspace = true }
 async-trait   = { workspace = true }
 tracing       = { workspace = true }
-launcher-mods = { path = "../mods" }
 chrono        = { workspace = true }
+hex           = { workspace = true }
+ed25519-dalek = { workspace = true }

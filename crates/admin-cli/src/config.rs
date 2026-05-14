@@ -25,7 +25,16 @@ pub struct ServerConfig {
     pub address: String,
     #[serde(default = "default_port")]
     pub port: u16,
+
+    #[serde(default = "default_manifest_provider")]
+    pub manifest_provider: String,
+    #[serde(default)]
+    pub manifest_url: String,
+    #[serde(default)]
+    pub manifest_public_key: String,
 }
+
+fn default_manifest_provider() -> String { "http".into() }
 
 fn default_port() -> u16 { 25565 }
 

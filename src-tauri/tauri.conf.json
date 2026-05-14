@@ -1,0 +1,46 @@
+{
+  "productName": "mc-launcher-template",
+  "version": "0.1.0",
+  "identifier": "com.mc-launcher.template",
+  "build": {
+    "frontendDist": "../build",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "MC Launcher",
+        "width": 1280,
+        "height": 720,
+        "minWidth": 1024,
+        "minHeight": 600,
+        "resizable": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' https://cdn.modrinth.com https://media.forgecdn.net data: blob:; connect-src 'self' ipc: http://ipc.localhost https://api.modrinth.com https://launchermeta.mojang.com https://piston-meta.mojang.com https://piston-data.mojang.com https://resources.download.minecraft.net https://meta.fabricmc.net https://maven.fabricmc.net https://meta.quiltmc.org https://maven.quiltmc.org https://maven.neoforged.net https://files.minecraftforge.net https://maven.minecraftforge.net https://api.adoptium.net https://login.microsoftonline.com https://user.auth.xboxlive.com https://xsts.auth.xboxlive.com https://api.minecraftservices.com; script-src 'self'; style-src 'self' 'unsafe-inline'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEExNDQyQkFDMUFEMkMyQzkKUldUSnd0SWFyQ3RFb1FIOThVZXl3SWdUbTdidldEai81c1hOeVpXOERQOFl1VEp1eFZlSVVSaVUK"
+    }
+  }
+}

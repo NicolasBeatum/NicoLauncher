@@ -123,10 +123,14 @@ impl FabricProvider {
                         } else {
                             return None;
                         };
-                        return Some(
-                            DownloadJob::new(&artifact.url, dest)
-                                .with_sha1(&artifact.sha1)
-                        );
+                        let mut job = DownloadJob::new(&artifact.url, dest);
+                        if !artifact.sha1.is_empty() {
+                            job = job.with_sha1(&artifact.sha1);
+                        }
+                        if artifact.size > 0 {
+                            job = job.with_size(artifact.size);
+                        }
+                        return Some(job);
                     }
                 }
                 // Library only has a `url` base (Maven repo) — skip; resolved via maven_url

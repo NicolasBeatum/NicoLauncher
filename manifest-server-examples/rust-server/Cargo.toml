@@ -1,0 +1,21 @@
+# Excluido del workspace raíz — es un proyecto independiente
+[workspace]
+
+[package]
+name    = "manifest-server"
+version = "0.1.0"
+edition = "2021"
+description = "Servidor de manifest para MC Launcher Template"
+
+[[bin]]
+name = "manifest-server"
+path = "src/main.rs"
+
+[dependencies]
+axum          = "0.7"
+tokio         = { version = "1", features = ["full"] }
+tower-http    = { version = "0.5", features = ["cors", "fs", "trace"] }
+serde         = { version = "1", features = ["derive"] }
+serde_json    = "1"
+tracing       = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

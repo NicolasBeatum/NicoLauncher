@@ -4,7 +4,7 @@ use tracing::info;
 use launcher_auth::AuthClient;
 use launcher_core::{LauncherPaths, LoaderType, ProgressEvent, ProgressReporter};
 use launcher_downloader::{DownloadJob, Downloader};
-use launcher_java_manager::find_java;
+use launcher_java_manager::ensure_java;
 use launcher_launcher::launch::{AuthSession, LaunchSpec};
 use launcher_loaders::{FabricProvider, merge};
 use launcher_meta::MojangMetaClient;
@@ -126,9 +126,9 @@ pub async fn run(
 
     // ── Java ──────────────────────────────────────────────────────────────────
     println!("[2/5] Locating Java {required_java}+…");
-    let java = find_java(required_java, Some(&paths.java))
+    let java = ensure_java(required_java, &paths.java, &|msg| println!("      {msg}"))
         .await
-        .context(format!("Finding Java {required_java}"))?;
+        .context(format!("Finding/installing Java {required_java}"))?;
     println!("      Java {} at {:?}", java.major_version, java.binary);
 
     // ── Download ──────────────────────────────────────────────────────────────
@@ -242,7 +242,11 @@ fn build_library_jobs(
                 } else if let Some(rel) = maven_to_path(&lib.name) {
                     libraries_dir.join(rel)
                 } else { continue };
-                jobs.push(DownloadJob::new(&artifact.url, dest).with_sha1(&artifact.sha1));
+                let mut job = DownloadJob::new(&artifact.url, dest);
+                if !artifact.sha1.is_empty() {
+                    job = job.with_sha1(&artifact.sha1);
+                }
+                jobs.push(job);
             }
         }
     }

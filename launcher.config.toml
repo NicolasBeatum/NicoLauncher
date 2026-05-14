@@ -41,22 +41,34 @@ address                   = "play.miservidor.com"
 port                      = 25565
 
 # Proveedor del manifest: "http" | "git" | "file"
-manifest_provider         = "http"
-manifest_url              = "https://api.miservidor.com/launcher/manifest.json"
+manifest_provider         = "file"
+manifest_url              = "C:/Users/Usuario/Documents/GitHub/NSMP/manifest-signed.json"
 manifest_git_repo         = ""
 manifest_git_branch       = "main"
 manifest_git_path         = "manifest.json"
 
 # Clave pública Ed25519 (hex). Vacío = modo dev, no verifica firma.
-manifest_public_key       = ""
+manifest_public_key       = "950322f8beb87a14fb005599cab76d9c74f7db0b0ba86943004e54ef133cd43a"
 
 update_check_interval_secs = 300
 status_endpoint           = ""
 
+# URL de un instances-registry.json remoto (opcional).
+# Si se define, el launcher descarga la lista de instancias al arrancar desde esta URL
+# en lugar de usar (o además de) las [[instances]] definidas abajo en este archivo.
+# Esto permite agregar/quitar instancias sin redistribuir el launcher.
+# Ejemplo: "https://files.miservidor.com/instances.json"
+# Ver: instances-registry.example.json para el formato esperado.
+instances_url             = ""
+
 [updater]
-enabled            = true
-release_url        = "https://api.miservidor.com/launcher/releases.json"
-release_public_key = ""
+# Pon enabled = true y configura release_url cuando tengas un servidor de releases.
+enabled            = false
+release_url        = "https://api.miservidor.com/launcher/releases/{{target}}/{{arch}}/{{current_version}}"
+# Contenido de updater.key.pub (generado con: npm run tauri -- signer generate -w updater.key)
+# La clave privada (updater.key) se guarda fuera del repo y se usa como env var en CI:
+#   TAURI_SIGNING_PRIVATE_KEY=<contenido del archivo>
+release_public_key = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEExNDQyQkFDMUFEMkMyQzkKUldUSnd0SWFyQ3RFb1FIOThVZXl3SWdUbTdidldEai81c1hOeVpXOERQOFl1VEp1eFZlSVVSaVUK"
 
 [features]
 allow_optional_mods            = true
@@ -82,6 +94,8 @@ default_jvm_args     = [
 ]
 download_concurrency = 8
 download_timeout_secs = 120
+# Versión de MC a usar cuando no hay manifest de servidor cargado (modo dev/offline)
+fallback_mc_version  = "1.21.1"
 
 [java]
 # "detect_or_download" | "always_download" | "system_only"
@@ -94,7 +108,34 @@ distribution = "temurin"
 # Tipo: "Personal Microsoft accounts only"
 # Redirect URI: http://localhost (tipo "Mobile and desktop applications")
 # Permisos: XboxLive.signin offline_access
-microsoft_client_id = ""   # ← pega aquí tu Application (client) ID
+microsoft_client_id = "6d1d4abd-f93f-4807-8174-7b3f021aa2c0"   # ← pega aquí tu Application (client) ID
+
+# ============================================================================
+# Instancias múltiples (opcional)
+# Si defines [[instances]], el [server] de arriba se ignora y cada instancia
+# tiene sus propios mods, manifest y directorio de juego.
+# Si solo tienes un servidor, no necesitas esta sección.
+# ============================================================================
+
+# [[instances]]
+# id             = "survival"                             # PERMANENTE — afecta rutas en disco
+# display_name   = "Supervivencia"
+# description    = "Servidor principal"
+# manifest_url   = "https://files.miservidor.com/survival/manifest.json"
+# manifest_provider = "http"
+# color          = "#7c3aed"                              # color del tab en la UI
+# server_address = "play.miservidor.com"
+# server_port    = 25565
+#
+# [[instances]]
+# id             = "test"
+# display_name   = "Test 🔧"
+# description    = "Servidor de pruebas"
+# manifest_url   = "https://files.miservidor.com/test/manifest.json"
+# manifest_provider = "http"
+# color          = "#16a34a"
+# server_address = "test.miservidor.com"
+# server_port    = 25565
 
 [curseforge]
 # También acepta la variable de entorno CURSEFORGE_API_KEY en tiempo de compilación

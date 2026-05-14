@@ -134,6 +134,9 @@ pub async fn launch(spec: LaunchSpec, reporter: ProgressReporter) -> Result<Game
         ("classpath",           classpath.clone()),
         ("launcher_name",       launcher_name.to_string()),
         ("launcher_version",    launcher_version.to_string()),
+        // NeoForge / Forge bootstrap variables
+        ("library_directory",   paths.libraries.to_string_lossy().to_string()),
+        ("classpath_separator", sep.to_string()),
     ]
     .into_iter()
     .collect();

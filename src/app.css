@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Branding CSS variables — overridden at runtime by the get_branding command */
+:root {
+  --color-primary:   #7c3aed;
+  --color-secondary: #1e293b;
+  --color-accent:    #f59e0b;
+  --font-heading:    'Inter';
+  --font-body:       'Inter';
+}
+
+/* Smooth window drag — title bar region */
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+}
+[data-tauri-drag-region] * {
+  -webkit-app-region: no-drag;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+
+/* Transitions */
+* { transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }

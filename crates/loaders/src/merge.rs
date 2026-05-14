@@ -38,12 +38,46 @@ fn merge_libraries(base: &mut Vec<Library>, loader_libs: &[Library]) {
     }
 }
 
-/// Extract `group:artifact` from a Maven coordinate `group:artifact:version[:classifier]`.
-fn group_artifact(name: &str) -> &str {
-    let second_colon = name.match_indices(':').nth(1).map(|(i, _)| i);
-    match second_colon {
-        Some(i) => &name[..i],
-        None    => name,
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn classifiers_are_not_deduplicated() {
+        assert_ne!(
+            group_artifact("net.minecraftforge:forge:1.21.1-52.1.0:universal"),
+            group_artifact("net.minecraftforge:forge:1.21.1-52.1.0:client"),
+        );
+    }
+
+    #[test]
+    fn same_ga_different_versions_deduplicates() {
+        assert_eq!(
+            group_artifact("com.google.guava:guava:30.1"),
+            group_artifact("com.google.guava:guava:32.1.2-jre"),
+        );
+    }
+}
+
+/// Extract a deduplication key from a Maven coordinate.
+///
+/// Format: `group:artifact:version[:classifier]`
+/// Key:    `group:artifact[:classifier]`   (version is ignored, classifier is kept)
+///
+/// Two libraries with the SAME group:artifact but DIFFERENT classifiers (e.g.
+/// `forge:1.21.1:universal` vs `forge:1.21.1:client`) must NOT replace each
+/// other — they are distinct JARs and must both be present on the classpath.
+fn group_artifact(name: &str) -> String {
+    let parts: Vec<&str> = name.splitn(4, ':').collect();
+    match parts.as_slice() {
+        // group:artifact:version:classifier  →  "group:artifact:classifier"
+        [g, a, _v, c] => format!("{g}:{a}:{c}"),
+        // group:artifact:version             →  "group:artifact"
+        [g, a, _v]    => format!("{g}:{a}"),
+        // group:artifact (no version)        →  "group:artifact"
+        [g, a]        => format!("{g}:{a}"),
+        // anything else                      →  the full name
+        _             => name.to_string(),
     }
 }
 

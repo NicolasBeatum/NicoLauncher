@@ -10,6 +10,7 @@ members = [
     "crates/java-manager",
     "crates/launcher",
     "crates/admin-cli",
+    "src-tauri",
 ]
 resolver = "2"
 
@@ -57,8 +58,10 @@ uuid          = { version = "1", features = ["v4"] }
 semver        = "1"
 base64        = "0.22"
 rand          = { version = "0.9", features = ["os_rng"] }
+ed25519-dalek = "2"
 open          = "5"
 keyring       = { version = "3", features = ["windows-native"] }
+zip           = { version = "2", default-features = false, features = ["deflate"] }
 
 # CLI (only used by admin-cli)
 clap          = { version = "4", features = ["derive"] }

@@ -1,0 +1,31 @@
+{
+  "_comment": "Sube este archivo a tu servidor/CDN y apunta instances_url a él en launcher.config.toml",
+  "_doc": "Formato: array de instancias. Cada instancia sobreescribe completamente las definidas en [[instances]] del config.",
+
+  "instances": [
+    {
+      "id": "survival",
+      "display_name": "Supervivencia",
+      "description": "Servidor principal — modpack completo",
+      "manifest_url": "https://files.beatum.cl/nsmp/manifest.json",
+      "manifest_provider": "http",
+      "manifest_public_key": "",
+      "color": "#7c3aed",
+      "icon": "",
+      "server_address": "play.beatum.cl",
+      "server_port": 25565
+    },
+    {
+      "id": "test",
+      "display_name": "Test 🔧",
+      "description": "Servidor de pruebas — últimos cambios",
+      "manifest_url": "https://files.beatum.cl/nsmp-test/manifest.json",
+      "manifest_provider": "http",
+      "manifest_public_key": "",
+      "color": "#16a34a",
+      "icon": "",
+      "server_address": "test.beatum.cl",
+      "server_port": 25565
+    }
+  ]
+}

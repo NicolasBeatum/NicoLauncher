@@ -1,0 +1,10 @@
+pub mod auth;
+pub mod branding;
+pub mod instances;
+pub mod launch;
+pub mod manifest;
+pub mod mods;
+pub mod settings;
+pub mod status;
+pub mod sync;
+pub mod updater;
