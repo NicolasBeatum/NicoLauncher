@@ -1,0 +1,86 @@
+# ============================================================================
+# update-manifest.yml — Valida, firma y despliega el manifest en GitHub Pages
+#
+# Trigger: push a main con cambios en manifest.json o lockfile.toml
+#
+# Secrets requeridos:
+#   MANIFEST_SIGNING_KEY — contenido de signing.key (generado con mc-launcher sign gen-keys)
+#
+# El manifest firmado se publica en:
+#   https://TU_ORG.github.io/REPO/manifest.json
+# ============================================================================
+
+name: Update Manifest
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'manifest.json'
+      - 'lockfile.toml'
+  workflow_dispatch:   # permite lanzar manualmente desde la UI de GitHub
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  validate-sign-deploy:
+    runs-on: ubuntu-22.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Instalar el CLI del admin ──────────────────────────────────────────
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+
+      - name: Build mc-launcher CLI
+        run: cargo build --release -p mc-launcher-admin-cli
+        working-directory: ${{ github.workspace }}
+
+      - name: Add CLI to PATH
+        run: echo "${{ github.workspace }}/target/release" >> $GITHUB_PATH
+
+      # ── Validar el manifest ────────────────────────────────────────────────
+      - name: Validate manifest
+        run: mc-launcher sign validate manifest.json --check-urls
+
+      # ── Firmar ────────────────────────────────────────────────────────────
+      - name: Write signing key
+        run: echo "${{ secrets.MANIFEST_SIGNING_KEY }}" > signing.key
+
+      - name: Sign manifest
+        run: mc-launcher sign sign manifest.json -k signing.key -o public/manifest.json
+
+      - name: Remove private key
+        if: always()
+        run: rm -f signing.key
+
+      # ── Verificar firma antes de publicar ──────────────────────────────────
+      - name: Verify signature
+        run: mc-launcher sign verify public/manifest.json -k public.key
+
+      # ── Publicar en GitHub Pages ───────────────────────────────────────────
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
