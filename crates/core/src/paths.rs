@@ -148,6 +148,93 @@ impl InstancePaths {
     }
 }
 
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── maven_to_path ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn maven_simple_coord() {
+        let p = maven_to_path("com.google.guava:guava:30.1").unwrap();
+        assert_eq!(
+            p,
+            PathBuf::from("com/google/guava/guava/30.1/guava-30.1.jar")
+        );
+    }
+
+    #[test]
+    fn maven_with_classifier() {
+        let p = maven_to_path("net.minecraftforge:forge:1.21.1-52.1.0:universal").unwrap();
+        assert_eq!(
+            p,
+            PathBuf::from("net/minecraftforge/forge/1.21.1-52.1.0/forge-1.21.1-52.1.0-universal.jar")
+        );
+    }
+
+    #[test]
+    fn maven_dotted_group() {
+        let p = maven_to_path("org.ow2.asm:asm:9.6").unwrap();
+        assert_eq!(
+            p,
+            PathBuf::from("org/ow2/asm/asm/9.6/asm-9.6.jar")
+        );
+    }
+
+    #[test]
+    fn maven_invalid_too_short_returns_none() {
+        assert!(maven_to_path("invalid").is_none());
+        assert!(maven_to_path("only:two").is_none());
+    }
+
+    #[test]
+    fn maven_classifier_not_included_in_group_artifact_path() {
+        let with    = maven_to_path("net.sf.jopt-simple:jopt-simple:5.0.4:shaded").unwrap();
+        let without = maven_to_path("net.sf.jopt-simple:jopt-simple:5.0.4").unwrap();
+        // They share the same dir but different filenames
+        assert_ne!(with, without);
+        assert!(with.to_str().unwrap().ends_with("-shaded.jar"));
+        assert!(!without.to_str().unwrap().contains("shaded"));
+    }
+
+    // ── LauncherPaths::from_root ──────────────────────────────────────────────
+
+    #[test]
+    fn paths_are_children_of_root() {
+        let root  = PathBuf::from("/test/root");
+        let paths = LauncherPaths::from_root(root.clone());
+
+        assert_eq!(paths.root, root);
+        assert!(paths.minecraft.starts_with(&root));
+        assert!(paths.cache.starts_with(&root));
+        assert!(paths.mods.starts_with(&paths.minecraft));
+        assert!(paths.libraries.starts_with(&paths.cache));
+        assert!(paths.mod_files.starts_with(&paths.cache));
+        assert!(paths.assets.starts_with(&paths.cache));
+    }
+
+    #[test]
+    fn mod_cas_path_uses_two_char_prefix() {
+        let paths = LauncherPaths::from_root(PathBuf::from("/root"));
+        let sha   = "abcdef1234567890";
+        let cas   = paths.mod_cas_path(sha);
+        // Should be: /root/cache/mod-files/ab/abcdef1234567890
+        assert!(cas.starts_with(paths.mod_files));
+        assert!(cas.to_str().unwrap().contains("ab"));
+        assert!(cas.file_name().unwrap() == sha);
+    }
+
+    #[test]
+    fn library_path_uses_maven_layout() {
+        let paths = LauncherPaths::from_root(PathBuf::from("/root"));
+        let p = paths.library_path("com.google.guava:guava:30.1").unwrap();
+        assert!(p.starts_with(&paths.libraries));
+        assert!(p.to_str().unwrap().contains("guava-30.1.jar"));
+    }
+}
+
 /// Convert a Maven coordinate (`group:artifact:version[:classifier]`) to a
 /// relative path (`group/artifact/version/artifact-version[-classifier].jar`).
 pub fn maven_to_path(name: &str) -> Option<PathBuf> {

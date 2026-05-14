@@ -784,4 +784,153 @@ mod tests {
         assert_eq!(plan.optional_mods_to_remove.len(), 1);
         assert_eq!(plan.optional_mods_to_remove[0], "jei.jar");
     }
+
+    // ── Ed25519 sign / verify roundtrip ──────────────────────────────────────
+
+    fn sign_message(message: &str) -> (String, String) {
+        use ed25519_dalek::{Signer, SigningKey};
+
+        // Fixed seed for deterministic tests — never use this in production.
+        let seed = [0x42u8; 32];
+        let signing_key = SigningKey::from_bytes(&seed);
+        let verifying_key = signing_key.verifying_key();
+        let pubkey_hex = hex::encode(verifying_key.as_bytes());
+        let sig = signing_key.sign(message.as_bytes());
+        let sig_hex = hex::encode(sig.to_bytes());
+        (pubkey_hex, sig_hex)
+    }
+
+    fn sign_message_with_seed(message: &str, seed: u8) -> (String, String) {
+        use ed25519_dalek::{Signer, SigningKey};
+        let signing_key = SigningKey::from_bytes(&[seed; 32]);
+        let verifying_key = signing_key.verifying_key();
+        (
+            hex::encode(verifying_key.as_bytes()),
+            hex::encode(signing_key.sign(message.as_bytes()).to_bytes()),
+        )
+    }
+
+    #[test]
+    fn ed25519_valid_signature_passes() {
+        let message = r#"{"schema_version":1,"manifest_version":"2026.01.01-1"}"#;
+        let (pubkey_hex, sig_hex) = sign_message(message);
+        assert!(verify_ed25519(message, &sig_hex, &pubkey_hex).is_ok());
+    }
+
+    #[test]
+    fn ed25519_tampered_message_fails() {
+        let message = r#"{"schema_version":1,"manifest_version":"2026.01.01-1"}"#;
+        let (pubkey_hex, sig_hex) = sign_message(message);
+        let evil = r#"{"schema_version":1,"manifest_version":"evil"}"#;
+        assert!(verify_ed25519(evil, &sig_hex, &pubkey_hex).is_err());
+    }
+
+    #[test]
+    fn ed25519_wrong_key_fails() {
+        let message = "test message";
+        let (_, sig_hex) = sign_message(message);
+        // Use a completely different seed → different key pair
+        let (other_pubkey, _) = sign_message_with_seed(message, 0x99);
+        assert!(verify_ed25519(message, &sig_hex, &other_pubkey).is_err());
+    }
+
+    #[test]
+    fn ed25519_invalid_pubkey_hex_fails() {
+        assert!(verify_ed25519("msg", "aabbcc", "not-hex!!").is_err());
+    }
+
+    #[test]
+    fn ed25519_short_pubkey_fails() {
+        // Valid hex but wrong length (not 32 bytes)
+        assert!(verify_ed25519("msg", "aabbcc", "deadbeef").is_err());
+    }
+
+    // ── GitProvider::to_raw_url ───────────────────────────────────────────────
+
+    #[test]
+    fn github_blob_url_converted_to_raw() {
+        let url = "https://github.com/user/repo/blob/main/manifest.json".to_string();
+        let raw = GitProvider::to_raw_url(url);
+        assert_eq!(raw, "https://raw.githubusercontent.com/user/repo/main/manifest.json");
+    }
+
+    #[test]
+    fn github_blob_nested_path_converted() {
+        let url = "https://github.com/org/repo/blob/v2/subdir/manifest.json".to_string();
+        let raw = GitProvider::to_raw_url(url);
+        assert_eq!(raw, "https://raw.githubusercontent.com/org/repo/v2/subdir/manifest.json");
+    }
+
+    #[test]
+    fn gitlab_blob_url_converted_to_raw() {
+        let url = "https://gitlab.com/user/repo/-/blob/main/manifest.json".to_string();
+        let raw = GitProvider::to_raw_url(url);
+        assert_eq!(raw, "https://gitlab.com/user/repo/-/raw/main/manifest.json");
+    }
+
+    #[test]
+    fn raw_githubusercontent_url_unchanged() {
+        let url = "https://raw.githubusercontent.com/user/repo/main/manifest.json".to_string();
+        let raw = GitProvider::to_raw_url(url.clone());
+        assert_eq!(raw, url);
+    }
+
+    #[test]
+    fn arbitrary_cdn_url_unchanged() {
+        let url = "https://cdn.miservidor.com/manifest.json".to_string();
+        let raw = GitProvider::to_raw_url(url.clone());
+        assert_eq!(raw, url);
+    }
+
+    // ── Loader action in sync plan ────────────────────────────────────────────
+
+    #[test]
+    fn loader_install_when_none_installed() {
+        let manifest = ServerManifest {
+            loader: Some(LoaderSpec {
+                loader_type: launcher_core::LoaderType::Fabric,
+                version: "0.16.0".into(),
+            }),
+            ..make_manifest(&[], &[])
+        };
+        let local = LocalState::default();
+        let plan = compute_sync_plan(&local, &manifest, &OptionalChoices::default());
+        assert!(matches!(plan.loader_action, LoaderAction::Install(_)));
+    }
+
+    #[test]
+    fn loader_reinstall_when_version_changed() {
+        let manifest = ServerManifest {
+            loader: Some(LoaderSpec {
+                loader_type: launcher_core::LoaderType::Fabric,
+                version: "0.16.1".into(),
+            }),
+            ..make_manifest(&[], &[])
+        };
+        let mut local = LocalState::default();
+        local.loader_installed = Some(InstalledLoader {
+            loader_type: "fabric".into(),
+            version: "0.16.0".into(),
+        });
+        let plan = compute_sync_plan(&local, &manifest, &OptionalChoices::default());
+        assert!(matches!(plan.loader_action, LoaderAction::Reinstall(_)));
+    }
+
+    #[test]
+    fn loader_none_when_up_to_date() {
+        let manifest = ServerManifest {
+            loader: Some(LoaderSpec {
+                loader_type: launcher_core::LoaderType::Fabric,
+                version: "0.16.0".into(),
+            }),
+            ..make_manifest(&[], &[])
+        };
+        let mut local = LocalState::default();
+        local.loader_installed = Some(InstalledLoader {
+            loader_type: "fabric".into(),
+            version: "0.16.0".into(),
+        });
+        let plan = compute_sync_plan(&local, &manifest, &OptionalChoices::default());
+        assert!(matches!(plan.loader_action, LoaderAction::None));
+    }
 }

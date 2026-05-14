@@ -17,3 +17,6 @@ tracing       = { workspace = true }
 chrono        = { workspace = true }
 hex           = { workspace = true }
 ed25519-dalek = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
