@@ -122,19 +122,20 @@ impl Downloader {
 }
 
 async fn download_with_retry(client: &reqwest::Client, job: &DownloadJob, reporter: &launcher_core::ProgressReporter) -> Result<()> {
-    // Fast path: skip if already present and valid
-    if job.dest.exists() {
-        if is_valid(job).await {
-            debug!("Skip (cached): {:?}", job.dest);
-            return Ok(());
-        }
-    }
-
-    // Log the filename being downloaded
     let filename = job.dest
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("?");
+
+    // Fast path: skip if already present and valid
+    if job.dest.exists() {
+        if is_valid(job).await {
+            debug!("Skip (cached): {:?}", job.dest);
+            reporter.info(format!("✓ {filename}")).await;
+            return Ok(());
+        }
+    }
+
     reporter.info(format!("⬇ {filename}")).await;
 
     // Build the list of URLs to try: primary first, then fallbacks

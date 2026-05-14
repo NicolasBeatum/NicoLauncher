@@ -400,6 +400,20 @@ pub async fn sync_apply(
     Ok(())
 }
 
+/// Limpia el estado local de la instancia activa para forzar un sync completo en el
+/// próximo PLAY. No borra los archivos ya descargados del CAS (la caché se reutiliza).
+#[tauri::command]
+pub async fn sync_force_reset(state: State<'_, AppState>) -> Result<(), String> {
+    let instance_id = state.active_instance.lock().await.clone();
+    let ipaths = state.paths.instance(&instance_id);
+
+    // Guardar un LocalState vacío — el próximo compute_plan marcará todo como pendiente
+    let empty = launcher_manifest_client::LocalState::default();
+    empty.save(&ipaths.state_file).await.map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 /// Re-linkea desde CAS todos los mods opcionales habilitados sin re-descargarlos.
 /// Útil cuando los archivos de mods/ se borraron pero la caché sigue intacta.
 /// Devuelve los nombres de mods que NO estaban en caché (necesitan sync completo).

@@ -108,6 +108,7 @@ pub fn run() {
             commands::sync::sync_check_missing,
             commands::sync::sync_apply,
             commands::sync::sync_rebuild_optional,
+            commands::sync::sync_force_reset,
             // Launch
             commands::launch::launch_game,
             commands::launch::get_launch_status,

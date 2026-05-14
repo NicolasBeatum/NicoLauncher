@@ -109,6 +109,7 @@ export const api = {
   syncComputePlan:       ()                       => invoke<SyncPlanDto>('sync_compute_plan'),
   syncCheckMissing:      ()                       => invoke<MissingModDto[]>('sync_check_missing'),
   syncApply:             (restoreMods: string[])  => invoke<void>('sync_apply', { restoreMods }),
+  syncForceReset:        ()                       => invoke<void>('sync_force_reset'),
   launchGame:            ()                       => invoke<void>('launch_game'),
   getLaunchStatus:       ()                       => invoke<{ logs: string[]; started: boolean; error: string | null; exitCode: number | null }>('get_launch_status'),
   gameIsRunning:         ()                       => invoke<boolean>('game_is_running'),

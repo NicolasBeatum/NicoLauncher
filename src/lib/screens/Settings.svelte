@@ -77,6 +77,20 @@
     }
   }
 
+  let forcingSyncReset = false;
+
+  async function forceSyncReset() {
+    forcingSyncReset = true;
+    try {
+      await api.syncForceReset();
+      addToast('success', 'Estado de sync limpiado — pulsa PLAY para re-descargar todo');
+    } catch (e) {
+      addToast('error', String(e));
+    } finally {
+      forcingSyncReset = false;
+    }
+  }
+
   // ── Diagnostics ────────────────────────────────────────────────────────────
   let creatingReport = false;
 
@@ -275,19 +289,41 @@
       <!-- Servidor -->
       <section class="mb-8">
         <h2 class="text-white/60 text-xs font-semibold uppercase tracking-wider mb-3">Servidor</h2>
-        <div class="p-4 rounded-xl space-y-3" style="background: rgba(255,255,255,0.05)">
-          <div class="flex items-center justify-between">
-            <div>
+        <div class="p-4 rounded-xl space-y-4" style="background: rgba(255,255,255,0.05)">
+
+          <!-- Forzar sync completo -->
+          <div class="flex items-center justify-between gap-4">
+            <div class="min-w-0">
+              <span class="text-white/80 text-sm font-medium">Forzar sync completo</span>
+              <p class="text-white/30 text-xs mt-0.5 leading-snug">
+                Marca todos los mods como pendientes. El próximo PLAY los re-verifica
+                (los que ya están en caché no se vuelven a descargar).
+              </p>
+            </div>
+            <button on:click={forceSyncReset} disabled={forcingSyncReset}
+                    class="shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium transition-all
+                           disabled:opacity-50 border border-white/20 text-white/80
+                           hover:border-white/40 hover:text-white">
+              {forcingSyncReset ? 'Limpiando…' : '⟳ Forzar sync'}
+            </button>
+          </div>
+
+          <div class="border-t border-white/10"></div>
+
+          <!-- Restablecer options.txt -->
+          <div class="flex items-center justify-between gap-4">
+            <div class="min-w-0">
               <span class="text-white/60 text-sm">Restablecer opciones del servidor</span>
               <p class="text-white/30 text-xs mt-0.5">Elimina options.txt local; el próximo sync lo restaura a los valores del servidor</p>
             </div>
             <button on:click={resetOptions} disabled={resettingOptions}
-                    class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all
+                    class="shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium transition-all
                            disabled:opacity-50 border border-white/20 text-white/80
                            hover:border-white/40 hover:text-white">
               {resettingOptions ? 'Eliminando…' : '↺ Restablecer'}
             </button>
           </div>
+
         </div>
       </section>
 

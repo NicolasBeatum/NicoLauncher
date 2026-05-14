@@ -170,6 +170,10 @@
   async function handlePlay() {
     if (playState === 'running') return;
 
+    // 0. Refrescar el plan justo antes de jugar para capturar cambios externos
+    //    (forzar sync, mods borrados, etc.) sin depender del reactive $:
+    try { syncPlan = await api.syncComputePlan(); } catch { /* ignorar */ }
+
     // 1. Detectar mods borrados del disco y preguntar al usuario qué hacer
     const restoreMods = await checkMissingMods();
 
@@ -270,6 +274,14 @@
     if (plan.configsToApply > 0) parts.push(`${plan.configsToApply} config`);
     if (plan.loaderAction !== 'none') parts.push(`loader: ${plan.loaderAction}`);
     return parts.join(' · ');
+  }
+
+  // Refrescar syncPlan cada vez que el usuario vuelve a esta pantalla
+  // (Home queda montado con display:none — onMount no vuelve a correr)
+  $: if ($screen === 'home' && playState === 'idle') {
+    api.syncComputePlan()
+      .then(plan => { syncPlan = plan; })
+      .catch(() => {});
   }
 
   $: syncNeeded = syncPlan && (
